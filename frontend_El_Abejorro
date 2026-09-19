@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Gastos</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 50px 20px; }
+        .btn { background-color: #004080; color: white; padding: 20px 40px; font-size: 20px; border: none; border-radius: 10px; cursor: pointer; width: 100%; max-width: 300px; margin: 10px; }
+        .btn-success { background-color: #28a745; display: none; } /* Oculto inicialmente */
+        #preview { max-width: 100%; margin-top: 20px; border-radius: 10px; display: none; }
+    </style>
+</head>
+<body>
+    <h2>Registro de Comprobantes</h2>
+
+    <!-- Seleccionar tomar foto -->
+    <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display: none;">
+    <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 TOMAR FOTO</button>
+
+    <img id="preview" src="" alt="Vista previa">
+
+    <!-- Presionar botón subir -->
+    <button class="btn btn-success" id="btnSubir" onclick="subirImagen()">☁️ SUBIR A BASE DE DATOS</button>
+
+    <script>
+        const cameraInput = document.getElementById('cameraInput');
+        const preview = document.getElementById('preview');
+        const btnSubir = document.getElementById('btnSubir');
+        const btnTomarFoto = document.getElementById('btnTomarFoto');
+        let archivoImagen = null;
+
+        // Cuando toman la foto, se muestra la vista previa y aparece el botón de subir
+        cameraInput.addEventListener('change', function(event) {
+            archivoImagen = event.target.files[0];
+            if (archivoImagen) {
+                preview.src = URL.createObjectURL(archivoImagen);
+                preview.style.display = 'block';
+                btnSubir.style.display = 'inline-block';
+                btnTomarFoto.innerText = '🔄 TOMAR OTRA FOTO';
+            }
+        });
+
+        // Función para enviar al backend (Python)
+        async function subirImagen() {
+            btnSubir.innerText = "⏳ Subiendo...";
+            const formData = new FormData();
+            formData.append("file", archivoImagen);
+
+            try {
+                // URL apuntando a tu servidor en producción en Render
+                const response = await fetch("https://compras-el-abejorro.onrender.com/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert("¡Listo! Subido a la base de datos."); 
+                    window.location.reload(); // Recarga la página para el siguiente ticket
+                } else {
+                    // Si el servidor rechaza la imagen (ej. error 500)
+                    const errorDetallado = await response.text();
+                    alert("El servidor dice: " + errorDetallado);
+                    btnSubir.innerText = "☁️ SUBIR A BASE DE DATOS"; 
+                }
+            } catch (error) {
+                // Si hay error de red, la URL está mal, o el servidor está apagado
+                alert("Error de conexión: No se pudo contactar al servidor. Revisa si el backend está encendido.");
+                console.error(error);
+                btnSubir.innerText = "☁️ SUBIR A BASE DE DATOS";
+            }
+        }
+    </script>
+</body>
+</html>
