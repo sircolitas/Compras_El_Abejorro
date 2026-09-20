@@ -62,7 +62,7 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
     modelo_ia = obtener_modelo_gemini()
     resultados = []
     
-    # Prompt adaptado a los nombres exactos de tus columnas
+    # Prompt adaptado a los nombres exactos incluyendo numero_documento
     prompt_financiero = """
     Analiza esta imagen de un comprobante de pago.
     Extrae la información en formato JSON estricto sin usar markdown.
@@ -70,6 +70,7 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
     {
       "cabecera": {
         "fecha_emision": "YYYY-MM-DD",
+        "numero_documento": "ej. F001-00123 o vacío",
         "ruc_proveedor": "solo numeros",
         "razon_social": "nombre de empresa",
         "tipo_comprobante": "Factura, Boleta o Recibo",
@@ -102,9 +103,10 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
             datos_json = json.loads(raw_text.strip())
             cabecera = datos_json.get("cabecera", {})
             
-            # Guardado en tabla 'comprobantes' con tus columnas exactas
+            # Guardado en tabla 'comprobantes' incluyendo el numero_documento
             res_cabecera = supabase.table("comprobantes").insert({
                 "fecha_emision": cabecera.get("fecha_emision"),
+                "numero_documento": cabecera.get("numero_documento", ""),
                 "ruc_proveedor": cabecera.get("ruc_proveedor", ""),
                 "razon_social": cabecera.get("razon_social", ""),
                 "tipo_comprobante": cabecera.get("tipo_comprobante", ""),
@@ -113,7 +115,7 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
             
             comprobante_id = res_cabecera.data[0]['id']
             
-            # Guardado en tabla 'lineas_detalle' con tus columnas exactas
+            # Guardado en tabla 'lineas_detalle'
             lineas = datos_json.get("lineas_detalle", [])
             for linea in lineas:
                 supabase.table("lineas_detalle").insert({
@@ -138,9 +140,10 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
 @app.post("/upload_manual")
 async def upload_manual(registro: IngresoManual):
     try:
-        # Se mapean los datos visuales a los nombres de tus columnas
+        # Se mapean los datos visuales incluyendo el numero_documento
         datos_cabecera = {
             "fecha_emision": registro.fecha,
+            "numero_documento": registro.numero_documento,
             "ruc_proveedor": registro.ruc,
             "razon_social": registro.razon_social,
             "tipo_comprobante": registro.tipo_comprobante,
