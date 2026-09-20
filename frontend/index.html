@@ -3,71 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Gastos</title>
+    <title>Registro de Gastos MVP</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 50px 20px; }
-        .btn { background-color: #004080; color: white; padding: 20px 40px; font-size: 20px; border: none; border-radius: 10px; cursor: pointer; width: 100%; max-width: 300px; margin: 10px; }
-        .btn-success { background-color: #28a745; display: none; } /* Oculto inicialmente */
-        #preview { max-width: 100%; margin-top: 20px; border-radius: 10px; display: none; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
+        .btn { background-color: #004080; color: white; padding: 15px 20px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; width: 100%; max-width: 300px; margin: 10px auto; display: block;}
+        .btn-success { background-color: #28a745; display: none; }
+        .btn-manual { background-color: #ff9800; }
+        .btn-cancel { background-color: #6c757d; }
+        
+        /* Contenedor de múltiples imágenes */
+        .preview-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; }
+        
+        /* Formulario Manual Oculto */
+        #manualForm { display: none; background: white; padding: 20px; border-radius: 10px; max-width: 320px; margin: 20px auto; text-align: left; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); }
+        #manualForm label { font-weight: bold; font-size: 14px; margin-top: 10px; display: block; }
+        #manualForm input { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;}
     </style>
 </head>
 <body>
     <h2>Registro de Comprobantes</h2>
 
-    <!-- Seleccionar tomar foto -->
-    <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display: none;">
-    <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 TOMAR FOTO</button>
+    <!-- Panel Principal -->
+    <div id="mainPanel">
+        <!-- Input file modificado: sin "capture", con "multiple" -->
+        <input type="file" accept="image/*" multiple id="cameraInput" style="display: none;">
+        <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 FOTO / ARCHIVO</button>
+        <button class="btn btn-manual" onclick="mostrarManual()">📝 REGISTRO MANUAL</button>
+    </div>
 
-    <img id="preview" src="" alt="Vista previa">
+    <!-- Vista Previa de Imágenes -->
+    <div class="preview-container" id="previewContainer"></div>
+    <button class="btn btn-success" id="btnSubir" onclick="subirImagenes()">☁️ SUBIR IMÁGENES (0)</button>
 
-    <!-- Presionar botón subir -->
-    <button class="btn btn-success" id="btnSubir" onclick="subirImagen()">☁️ SUBIR A BASE DE DATOS</button>
+    <!-- Panel de Ingreso Manual -->
+    <div id="manualForm">
+        <h3 style="text-align: center; margin-top: 0;">Ingreso Manual</h3>
+        
+        <label>Fecha del Gasto:</label>
+        <input type="date" id="manFecha">
+        
+        <label>RUC / Proveedor:</label>
+        <input type="text" id="manProveedor" placeholder="Ej. 20123... - Sodimac">
+        
+        <label>Monto Total (S/):</label>
+        <input type="number" id="manTotal" step="0.01" placeholder="Ej. 150.50">
+
+        <button class="btn" style="background-color: #28a745; width: 100%; margin: 10px 0;" onclick="subirManual()">☁️ GUARDAR GASTO</button>
+        <button class="btn btn-cancel" style="width: 100%; margin: 0;" onclick="ocultarManual()">❌ CANCELAR</button>
+    </div>
 
     <script>
         const cameraInput = document.getElementById('cameraInput');
-        const preview = document.getElementById('preview');
+        const previewContainer = document.getElementById('previewContainer');
         const btnSubir = document.getElementById('btnSubir');
         const btnTomarFoto = document.getElementById('btnTomarFoto');
-        let archivoImagen = null;
+        const mainPanel = document.getElementById('mainPanel');
+        const manualForm = document.getElementById('manualForm');
+        let archivosSeleccionados = [];
 
-        // Cuando toman la foto, se muestra la vista previa y aparece el botón de subir
+        // Preestablecer la fecha de hoy en el formulario manual
+        document.getElementById('manFecha').valueAsDate = new Date();
+
+        // Manejo de múltiples fotos
         cameraInput.addEventListener('change', function(event) {
-            archivoImagen = event.target.files[0];
-            if (archivoImagen) {
-                preview.src = URL.createObjectURL(archivoImagen);
-                preview.style.display = 'block';
-                btnSubir.style.display = 'inline-block';
-                btnTomarFoto.innerText = '🔄 TOMAR OTRA FOTO';
+            archivosSeleccionados = Array.from(event.target.files);
+            
+            if (archivosSeleccionados.length > 10) {
+                alert("Has seleccionado más de 10 archivos. Solo se procesarán los primeros 10.");
+                archivosSeleccionados = archivosSeleccionados.slice(0, 10);
+            }
+
+            previewContainer.innerHTML = '';
+            if (archivosSeleccionados.length > 0) {
+                archivosSeleccionados.forEach(file => {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.className = 'preview-img';
+                    previewContainer.appendChild(img);
+                });
+                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+                btnSubir.style.display = 'block';
+                btnTomarFoto.innerText = '🔄 CAMBIAR FOTOS';
             }
         });
 
-        // Función para enviar al backend (Python)
-        async function subirImagen() {
-            btnSubir.innerText = "⏳ Subiendo...";
+        // Enviar bloque de imágenes a Python
+        async function subirImagenes() {
+            btnSubir.innerText = "⏳ Procesando con IA...";
             const formData = new FormData();
-            formData.append("file", archivoImagen);
+            
+            // Adjuntamos todas las imágenes con la misma clave "files"
+            archivosSeleccionados.forEach(file => {
+                formData.append("files", file); 
+            });
 
             try {
-                // URL apuntando a tu servidor en producción en Render
-                const response = await fetch("https://compras-el-abejorro.onrender.com/upload", {
+                const response = await fetch("https://compras-el-abejorro.onrender.com/upload_multiple", {
                     method: "POST",
                     body: formData
                 });
                 
                 if (response.ok) {
-                    alert("¡Listo! Subido a la base de datos."); 
-                    window.location.reload(); // Recarga la página para el siguiente ticket
+                    alert("¡Listo! Comprobantes procesados y guardados en Supabase."); 
+                    window.location.reload(); 
                 } else {
-                    // Si el servidor rechaza la imagen (ej. error 500)
                     const errorDetallado = await response.text();
-                    alert("El servidor dice: " + errorDetallado);
-                    btnSubir.innerText = "☁️ SUBIR A BASE DE DATOS"; 
+                    alert("Error en el motor IA: " + errorDetallado);
+                    btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`; 
                 }
             } catch (error) {
-                // Si hay error de red, la URL está mal, o el servidor está apagado
-                alert("Error de conexión: No se pudo contactar al servidor. Revisa si el backend está encendido.");
-                console.error(error);
-                btnSubir.innerText = "☁️ SUBIR A BASE DE DATOS";
+                alert("Error de conexión con el servidor Render.");
+                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+            }
+        }
+
+        // Mostrar / Ocultar panel manual
+        function mostrarManual() {
+            mainPanel.style.display = 'none';
+            previewContainer.style.display = 'none';
+            btnSubir.style.display = 'none';
+            manualForm.style.display = 'block';
+        }
+
+        function ocultarManual() {
+            manualForm.style.display = 'none';
+            mainPanel.style.display = 'block';
+            archivosSeleccionados = [];
+            previewContainer.innerHTML = '';
+            btnTomarFoto.innerText = '📸 FOTO / ARCHIVO';
+        }
+
+        // Enviar registro manual a Python
+        async function subirManual() {
+            const fecha = document.getElementById('manFecha').value;
+            const proveedor = document.getElementById('manProveedor').value;
+            const total = document.getElementById('manTotal').value;
+
+            if(!total || !proveedor) {
+                alert("Por favor ingresa al menos el RUC/Proveedor y el Monto Total.");
+                return;
+            }
+
+            const data = { fecha: fecha, razon_social: proveedor, total: parseFloat(total) };
+
+            try {
+                const response = await fetch("https://compras-el-abejorro.onrender.com/upload_manual", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert("¡Gasto manual guardado exitosamente!");
+                    window.location.reload();
+                } else {
+                    alert("Error al guardar en Supabase.");
+                }
+            } catch (error) {
+                alert("Error de conexión con el servidor.");
             }
         }
     </script>
