@@ -28,7 +28,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# 3. Estructura para recibir datos del frontend
+# 3. Estructura para recibir datos del frontend (Actualizada)
 class IngresoManual(BaseModel):
     fecha: str
     numero_documento: str
@@ -36,6 +36,8 @@ class IngresoManual(BaseModel):
     razon_social: str
     tipo_comprobante: str
     exonerado_igv: bool
+    descripcion: str
+    cantidad: float
     valor_venta: float
     igv: float
     total: float
@@ -62,7 +64,6 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
     modelo_ia = obtener_modelo_gemini()
     resultados = []
     
-    # Prompt adaptado a los nombres exactos incluyendo numero_documento
     prompt_financiero = """
     Analiza esta imagen de un comprobante de pago.
     Extrae la información en formato JSON estricto sin usar markdown.
@@ -103,7 +104,6 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
             datos_json = json.loads(raw_text.strip())
             cabecera = datos_json.get("cabecera", {})
             
-            # Guardado en tabla 'comprobantes' incluyendo el numero_documento
             res_cabecera = supabase.table("comprobantes").insert({
                 "fecha_emision": cabecera.get("fecha_emision"),
                 "numero_documento": cabecera.get("numero_documento", ""),
@@ -115,7 +115,6 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
             
             comprobante_id = res_cabecera.data[0]['id']
             
-            # Guardado en tabla 'lineas_detalle'
             lineas = datos_json.get("lineas_detalle", [])
             for linea in lineas:
                 supabase.table("lineas_detalle").insert({
@@ -140,7 +139,6 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
 @app.post("/upload_manual")
 async def upload_manual(registro: IngresoManual):
     try:
-        # Se mapean los datos visuales incluyendo el numero_documento
         datos_cabecera = {
             "fecha_emision": registro.fecha,
             "numero_documento": registro.numero_documento,
@@ -153,11 +151,11 @@ async def upload_manual(registro: IngresoManual):
         res_cabecera = supabase.table("comprobantes").insert(datos_cabecera).execute()
         comprobante_id = res_cabecera.data[0]['id']
         
-        # El desglose financiero se guarda en las líneas de detalle
+        # Guardamos la descripción y cantidad ingresadas por el usuario
         supabase.table("lineas_detalle").insert({
             "comprobante_id": comprobante_id,
-            "descripcion": "Ingreso Manual / Global",
-            "cantidad": 1.0,
+            "descripcion": registro.descripcion,
+            "cantidad": registro.cantidad,
             "valor_venta": registro.valor_venta,
             "igv": registro.igv,
             "precio_total": registro.total
