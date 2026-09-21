@@ -41,7 +41,7 @@ class IngresoManual(BaseModel):
     igv: float
     total: float
 
-# 4. Motor IA Dinámico (Corregido para evadir modelos obsoletos)
+# 4. Motor IA Dinámico
 def obtener_modelo_gemini():
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -59,7 +59,6 @@ def obtener_modelo_gemini():
         # Prioridad 3: El primer modelo que encuentre como último recurso
         return genai.GenerativeModel(modelos[0])
     except Exception as e:
-        # Fallback de emergencia manual
         return genai.GenerativeModel('models/gemini-3.6-flash')
 
 # =====================================================================
@@ -74,7 +73,7 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
     resultados = []
     
     prompt_financiero = """
-    Analiza esta imagen de un comprobante de pago.
+    Analiza este documento (puede ser imagen, PDF o texto CSV) de un comprobante de pago.
     Extrae la información en formato JSON estricto sin usar markdown.
     La estructura obligatoria es:
     {
@@ -101,8 +100,24 @@ async def upload_multiple(files: List[UploadFile] = File(...)):
     for file in files:
         try:
             content = await file.read()
-            img = Image.open(io.BytesIO(content))
-            respuesta_ia = modelo_ia.generate_content([prompt_financiero, img])
+            mime_type = file.content_type
+            
+            # === CLASIFICADOR DE ARCHIVOS MULTIMODAL ===
+            if mime_type.startswith("image/"):
+                # Procesar como imagen con Pillow
+                contenido_ia = Image.open(io.BytesIO(content))
+            elif mime_type == "application/pdf":
+                # Procesar como PDF binario para Gemini
+                contenido_ia = {"mime_type": "application/pdf", "data": content}
+            elif "csv" in mime_type or "text" in mime_type:
+                # Procesar como archivo de texto (CSV/TXT)
+                texto_doc = content.decode('utf-8', errors='ignore')
+                contenido_ia = f"Contenido del documento:\n{texto_doc}"
+            else:
+                raise Exception(f"Formato no soportado actualmente: {mime_type}")
+            
+            # Enviar a la IA
+            respuesta_ia = modelo_ia.generate_content([prompt_financiero, contenido_ia])
             
             raw_text = respuesta_ia.text.strip()
             if raw_text.startswith("```json"):
