@@ -127,15 +127,23 @@
                 });
                 
                 if (response.ok) {
-                    alert("¡Listo! Comprobantes procesados."); 
-                    window.location.reload(); 
+                    const data = await response.json();
+                    const errores = data.resultados.filter(r => r.estado === "error");
+                    
+                    if (errores.length > 0) {
+                        alert("El servidor rechazó la imagen. Detalle exacto: " + errores[0].detalle);
+                        btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+                    } else {
+                        alert("¡Listo! Comprobantes procesados y guardados en Supabase."); 
+                        window.location.reload(); 
+                    }
                 } else {
                     const errorDetallado = await response.text();
-                    alert("Error IA: " + errorDetallado);
+                    alert("Error de conexión: " + errorDetallado);
                     btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`; 
                 }
             } catch (error) {
-                alert("Error de conexión con el servidor.");
+                alert("Error crítico al contactar con Render.");
                 btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
             }
         }
