@@ -12,7 +12,8 @@
         .btn-cancel { background-color: #6c757d; }
         
         .preview-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
-        .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; }
+        .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; overflow: hidden; }
+        .preview-doc { width: 80px; height: 80px; background-color: #ddd; border-radius: 8px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; padding: 5px; box-sizing: border-box; word-break: break-all; }
         
         #manualForm { display: none; background: white; padding: 20px; border-radius: 10px; max-width: 340px; margin: 20px auto; text-align: left; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); }
         #manualForm label { font-weight: bold; font-size: 14px; margin-top: 10px; display: block; }
@@ -22,7 +23,6 @@
         .radio-group label { font-weight: normal; display: flex; align-items: center; gap: 5px; margin-top: 0; cursor: pointer; }
         .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; font-weight: normal; cursor: pointer; }
         
-        /* Contenedor para agrupar Cantidad y Total */
         .flex-row { display: flex; gap: 10px; }
         .flex-row > div { flex: 1; }
     </style>
@@ -31,13 +31,14 @@
     <h2>Registro de Comprobantes</h2>
 
     <div id="mainPanel">
-        <input type="file" accept="image/*" multiple id="cameraInput" style="display: none;">
-        <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 FOTO / ARCHIVO</button>
+        <!-- ¡AQUÍ SE AMPLÍA EL FILTRO PARA ACEPTAR PDF Y CSV! -->
+        <input type="file" accept="image/*, application/pdf, text/csv, .csv" multiple id="cameraInput" style="display: none;">
+        <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 FOTO / DOCUMENTO</button>
         <button class="btn btn-manual" onclick="mostrarManual()">📝 REGISTRO MANUAL</button>
     </div>
 
     <div class="preview-container" id="previewContainer"></div>
-    <button class="btn btn-success" id="btnSubir" onclick="subirImagenes()">☁️ SUBIR IMÁGENES (0)</button>
+    <button class="btn btn-success" id="btnSubir" onclick="subirImagenes()">☁️ SUBIR ARCHIVOS (0)</button>
 
     <div id="manualForm">
         <h3 style="text-align: center; margin-top: 0;">Ingreso Manual</h3>
@@ -104,14 +105,22 @@
             previewContainer.innerHTML = '';
             if (archivosSeleccionados.length > 0) {
                 archivosSeleccionados.forEach(file => {
-                    const img = document.createElement('img');
-                    img.src = URL.createObjectURL(file);
-                    img.className = 'preview-img';
-                    previewContainer.appendChild(img);
+                    // Lógica para mostrar imagen o un cuadro si es PDF/CSV
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.className = 'preview-img';
+                        previewContainer.appendChild(img);
+                    } else {
+                        const docDiv = document.createElement('div');
+                        docDiv.className = 'preview-doc';
+                        docDiv.innerText = file.name.substring(0, 15) + (file.name.length > 15 ? '...' : '');
+                        previewContainer.appendChild(docDiv);
+                    }
                 });
-                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} ARCHIVOS`;
                 btnSubir.style.display = 'block';
-                btnTomarFoto.innerText = '🔄 CAMBIAR FOTOS';
+                btnTomarFoto.innerText = '🔄 CAMBIAR ARCHIVOS';
             }
         });
 
@@ -131,8 +140,8 @@
                     const errores = data.resultados.filter(r => r.estado === "error");
                     
                     if (errores.length > 0) {
-                        alert("El servidor rechazó la imagen. Detalle exacto: " + errores[0].detalle);
-                        btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+                        alert("El servidor rechazó un archivo. Detalle exacto: " + errores[0].detalle);
+                        btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} ARCHIVOS`;
                     } else {
                         alert("¡Listo! Comprobantes procesados y guardados en Supabase."); 
                         window.location.reload(); 
@@ -140,11 +149,11 @@
                 } else {
                     const errorDetallado = await response.text();
                     alert("Error de conexión: " + errorDetallado);
-                    btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`; 
+                    btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} ARCHIVOS`; 
                 }
             } catch (error) {
                 alert("Error crítico al contactar con Render.");
-                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} IMÁGENES`;
+                btnSubir.innerText = `☁️ SUBIR ${archivosSeleccionados.length} ARCHIVOS`;
             }
         }
 
@@ -160,7 +169,7 @@
             mainPanel.style.display = 'block';
             archivosSeleccionados = [];
             previewContainer.innerHTML = '';
-            btnTomarFoto.innerText = '📸 FOTO / ARCHIVO';
+            btnTomarFoto.innerText = '📸 FOTO / DOCUMENTO';
         }
 
         async function subirManual() {
