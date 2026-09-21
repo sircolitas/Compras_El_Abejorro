@@ -11,11 +11,9 @@
         .btn-manual { background-color: #ff9800; }
         .btn-cancel { background-color: #6c757d; }
         
-        /* Contenedor de múltiples imágenes */
         .preview-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
         .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; }
         
-        /* Formulario Manual Oculto */
         #manualForm { display: none; background: white; padding: 20px; border-radius: 10px; max-width: 340px; margin: 20px auto; text-align: left; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); }
         #manualForm label { font-weight: bold; font-size: 14px; margin-top: 10px; display: block; }
         #manualForm input[type="text"], #manualForm input[type="number"], #manualForm input[type="date"] { width: 100%; padding: 10px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;}
@@ -23,23 +21,24 @@
         .radio-group { display: flex; gap: 15px; margin: 5px 0 15px 0; }
         .radio-group label { font-weight: normal; display: flex; align-items: center; gap: 5px; margin-top: 0; cursor: pointer; }
         .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; font-weight: normal; cursor: pointer; }
+        
+        /* Contenedor para agrupar Cantidad y Total */
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row > div { flex: 1; }
     </style>
 </head>
 <body>
     <h2>Registro de Comprobantes</h2>
 
-    <!-- Panel Principal -->
     <div id="mainPanel">
         <input type="file" accept="image/*" multiple id="cameraInput" style="display: none;">
         <button class="btn" id="btnTomarFoto" onclick="document.getElementById('cameraInput').click()">📸 FOTO / ARCHIVO</button>
         <button class="btn btn-manual" onclick="mostrarManual()">📝 REGISTRO MANUAL</button>
     </div>
 
-    <!-- Vista Previa de Imágenes -->
     <div class="preview-container" id="previewContainer"></div>
     <button class="btn btn-success" id="btnSubir" onclick="subirImagenes()">☁️ SUBIR IMÁGENES (0)</button>
 
-    <!-- Panel de Ingreso Manual -->
     <div id="manualForm">
         <h3 style="text-align: center; margin-top: 0;">Ingreso Manual</h3>
         
@@ -65,8 +64,19 @@
             <input type="checkbox" id="manExonerado"> Es exonerado de IGV
         </label>
         
-        <label>Importe Total (S/):</label>
-        <input type="number" id="manTotal" step="0.01" placeholder="Ej. 150.50">
+        <label>Descripción del Gasto:</label>
+        <input type="text" id="manDescripcion" placeholder="Ej. Algodón Pima, Cierres, etc.">
+
+        <div class="flex-row">
+            <div>
+                <label>Cantidad:</label>
+                <input type="number" id="manCantidad" step="0.01" value="1">
+            </div>
+            <div>
+                <label>Importe Total (S/):</label>
+                <input type="number" id="manTotal" step="0.01" placeholder="Ej. 150.50">
+            </div>
+        </div>
 
         <button class="btn" style="background-color: #28a745; width: 100%; margin: 15px 0 5px 0;" onclick="subirManual()">☁️ GUARDAR GASTO</button>
         <button class="btn btn-cancel" style="width: 100%; margin: 0;" onclick="ocultarManual()">❌ CANCELAR</button>
@@ -150,13 +160,15 @@
             const documento = document.getElementById('manDocumento').value;
             const ruc = document.getElementById('manRuc').value;
             const razonSocial = document.getElementById('manRazonSocial').value;
+            const descripcion = document.getElementById('manDescripcion').value || "Gasto sin descripción";
+            const cantidad = document.getElementById('manCantidad').value || 1;
             const totalInput = document.getElementById('manTotal').value;
             
             const esFactura = document.getElementById('manFactura').checked;
             const esExonerado = document.getElementById('manExonerado').checked;
 
             if(!totalInput || !razonSocial || !documento || !ruc) {
-                alert("Por favor completa todos los campos del comprobante.");
+                alert("Por favor completa los campos principales del comprobante.");
                 return;
             }
 
@@ -164,13 +176,11 @@
             let valorVenta = total;
             let igv = 0.00;
 
-            // Lógica contable de impuestos
             if (esFactura && !esExonerado) {
                 valorVenta = total / 1.18;
                 igv = total - valorVenta;
             }
 
-            // Redondeo a 2 decimales para la base de datos
             valorVenta = parseFloat(valorVenta.toFixed(2));
             igv = parseFloat(igv.toFixed(2));
 
@@ -181,6 +191,8 @@
                 razon_social: razonSocial,
                 tipo_comprobante: esFactura ? "Factura" : "Boleta",
                 exonerado_igv: esExonerado,
+                descripcion: descripcion,
+                cantidad: parseFloat(cantidad),
                 valor_venta: valorVenta,
                 igv: igv,
                 total: total 
@@ -197,7 +209,8 @@
                     alert("¡Gasto manual guardado exitosamente!");
                     window.location.reload();
                 } else {
-                    alert("Error al guardar en Supabase.");
+                    const errorDetallado = await response.text();
+                    alert("Error del servidor: " + errorDetallado);
                 }
             } catch (error) {
                 alert("Error de conexión con el servidor.");
