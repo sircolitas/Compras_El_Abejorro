@@ -28,7 +28,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# 3. Estructura para recibir datos del frontend (Actualizada)
 class IngresoManual(BaseModel):
     fecha: str
     numero_documento: str
@@ -42,16 +41,26 @@ class IngresoManual(BaseModel):
     igv: float
     total: float
 
-# 4. Motor IA Dinámico
+# 4. Motor IA Dinámico (Corregido para evadir modelos obsoletos)
 def obtener_modelo_gemini():
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Prioridad 1: Buscar exactamente el modelo 3.6-flash que exige Google actualmente
         for m in modelos:
-            if 'flash' in m.lower():
+            if '3.6-flash' in m.lower():
                 return genai.GenerativeModel(m)
+                
+        # Prioridad 2: Si no está el 3.6, buscar cualquier flash que NO sea el 2.5 obsoleto
+        for m in modelos:
+            if 'flash' in m.lower() and '2.5' not in m.lower():
+                return genai.GenerativeModel(m)
+                
+        # Prioridad 3: El primer modelo que encuentre como último recurso
         return genai.GenerativeModel(modelos[0])
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error con Google AI Studio.")
+        # Fallback de emergencia manual
+        return genai.GenerativeModel('models/gemini-3.6-flash')
 
 # =====================================================================
 # RUTA 1: PROCESAMIENTO MÚLTIPLE CON INTELIGENCIA ARTIFICIAL (IA)
@@ -151,7 +160,6 @@ async def upload_manual(registro: IngresoManual):
         res_cabecera = supabase.table("comprobantes").insert(datos_cabecera).execute()
         comprobante_id = res_cabecera.data[0]['id']
         
-        # Guardamos la descripción y cantidad ingresadas por el usuario
         supabase.table("lineas_detalle").insert({
             "comprobante_id": comprobante_id,
             "descripcion": registro.descripcion,
